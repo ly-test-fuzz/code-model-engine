@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ GPLv3 License
+  ~
+  ~ Copyright (c) 2022-2026 4ra1n (Jar Analyzer Team)
+  ~
+  ~ This project is distributed under the GPLv3 license.
+  ~
+  ~ https://github.com/jar-analyzer/jar-analyzer/blob/master/LICENSE
+  -->
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="me.n1ar4.jar.analyzer.core.mapper.MethodCallMapper">
+    <resultMap id="methodMap" type="me.n1ar4.jar.analyzer.entity.MethodResult">
+        <result column="method_name" property="methodName"/>
+        <result column="class_name" property="className"/>
+        <result column="method_desc" property="methodDesc"/>
+    </resultMap>
+    <insert id="insertMethodCall" parameterType="MethodCallEntity">
+        INSERT INTO method_call_table
+        (
+        caller_method_name, caller_method_desc, caller_class_name, caller_jar_id,
+        callee_method_name, callee_method_desc, callee_class_name, callee_jar_id, op_code
+        )
+        VALUES
+        <foreach collection="list" separator="," item="item">
+            (
+            #{item.callerMethodName}, #{item.callerMethodDesc}, #{item.callerClassName}, #{item.callerJarId},
+            #{item.calleeMethodName}, #{item.calleeMethodDesc}, #{item.calleeClassName}, #{item.calleeJarId}, #{item.opCode}
+            )
+        </foreach>
+    </insert>
+</mapper>

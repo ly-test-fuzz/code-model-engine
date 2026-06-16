@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ GPLv3 License
+  ~
+  ~ Copyright (c) 2022-2026 4ra1n (Jar Analyzer Team)
+  ~
+  ~ This project is distributed under the GPLv3 license.
+  ~
+  ~ https://github.com/jar-analyzer/jar-analyzer/blob/master/LICENSE
+  -->
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="me.n1ar4.jar.analyzer.core.mapper.ClassFileMapper">
+    <insert id="insertClassFile" parameterType="ClassFileEntity">
+        INSERT INTO class_file_table
+        (class_name, path_str, java_path, jar_name, jar_id)
+        VALUES
+        <foreach collection="list" separator="," item="item">
+            (#{item.className}, #{item.pathStr}, #{item.javaPath}, #{item.jarName}, #{item.jarId})
+        </foreach>
+    </insert>
+</mapper>

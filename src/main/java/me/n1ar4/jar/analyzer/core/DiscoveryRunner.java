@@ -1,0 +1,79 @@
+/*
+ * GPLv3 License
+ *
+ * Copyright (c) 2022-2026 4ra1n (Jar Analyzer Team)
+ *
+ * This project is distributed under the GPLv3 license.
+ *
+ * https://github.com/jar-analyzer/jar-analyzer/blob/master/LICENSE
+ */
+
+package me.n1ar4.jar.analyzer.core;
+
+import me.n1ar4.jar.analyzer.core.asm.DiscoveryClassVisitor;
+import me.n1ar4.jar.analyzer.core.asm.StringAnnoClassVisitor;
+import me.n1ar4.jar.analyzer.core.reference.ClassReference;
+import me.n1ar4.jar.analyzer.core.reference.MethodReference;
+import me.n1ar4.jar.analyzer.engine.EngineConst;
+import me.n1ar4.jar.analyzer.engine.log.LogManager;
+import me.n1ar4.jar.analyzer.engine.log.Logger;
+import me.n1ar4.jar.analyzer.engine.utils.StackMapFrameHandler;
+import me.n1ar4.jar.analyzer.entity.ClassFileEntity;
+import org.objectweb.asm.ClassReader;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+public class DiscoveryRunner {
+    private static final Logger logger = LogManager.getLogger();
+
+    public static void start(Set<ClassFileEntity> classFileList,
+                             Set<ClassReference> discoveredClasses,
+                             Set<MethodReference> discoveredMethods,
+                             Map<ClassReference.Handle, ClassReference> classMap,
+                             Map<MethodReference.Handle, MethodReference> methodMap,
+                             Map<MethodReference.Handle, List<String>> stringAnnoMap) {
+        logger.info("start class analyze");
+        for (ClassFileEntity file : classFileList) {
+            try {
+                DiscoveryClassVisitor dcv = new DiscoveryClassVisitor(discoveredClasses,
+                        discoveredMethods, file.getJarName(), file.getJarId());
+                ClassReader cr = new ClassReader(file.getFile());
+                cr.accept(dcv, EngineConst.AnalyzeASMOptions);
+            } catch (IndexOutOfBoundsException e) {
+                // Handle corrupted StackMapTable by falling back to SKIP_FRAMES mode
+                if (!StackMapFrameHandler.handleParseException(file,
+                        new DiscoveryClassVisitor(discoveredClasses, discoveredMethods, file.getJarName(), file.getJarId()),
+                        logger, "class discovery", e)) {
+                    logger.error("discovery error: {}", e.toString());
+                }
+            } catch (Exception e) {
+                logger.error("discovery error: {}", e.toString());
+            }
+        }
+        for (ClassReference clazz : discoveredClasses) {
+            classMap.put(clazz.getHandle(), clazz);
+        }
+        for (MethodReference method : discoveredMethods) {
+            methodMap.put(method.getHandle(), method);
+        }
+        logger.info("start string annotation analyze");
+        for (ClassFileEntity file : classFileList) {
+            try {
+                StringAnnoClassVisitor sav = new StringAnnoClassVisitor(stringAnnoMap);
+                ClassReader cr = new ClassReader(file.getFile());
+                cr.accept(sav, EngineConst.AnalyzeASMOptions);
+            } catch (IndexOutOfBoundsException e) {
+                // Handle corrupted StackMapTable by falling back to SKIP_FRAMES mode
+                if (!StackMapFrameHandler.handleParseException(file,
+                        new StringAnnoClassVisitor(stringAnnoMap),
+                        logger, "string annotation analysis", e)) {
+                    logger.error("discovery error: {}", e.toString());
+                }
+            } catch (Exception e) {
+                logger.error("discovery error: {}", e.toString());
+            }
+        }
+    }
+}

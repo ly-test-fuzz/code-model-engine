@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ GPLv3 License
+  ~
+  ~ Copyright (c) 2022-2026 4ra1n (Jar Analyzer Team)
+  ~
+  ~ This project is distributed under the GPLv3 license.
+  ~
+  ~ https://github.com/jar-analyzer/jar-analyzer/blob/master/LICENSE
+  -->
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="me.n1ar4.jar.analyzer.core.mapper.InitMapper">
+    <update id="createJarTable">
+        CREATE TABLE IF NOT EXISTS jar_table
+        (
+            jid INTEGER NOT NULL
+            CONSTRAINT jar_table_pk PRIMARY KEY AUTOINCREMENT,
+            jar_name TEXT NOT NULL,
+            jar_abs_path TEXT NOT NULL
+        );
+    </update>
+    <update id="createClassTable">
+        CREATE TABLE IF NOT EXISTS class_table
+        (
+            cid INTEGER NOT NULL
+            CONSTRAINT class_table_pk PRIMARY KEY AUTOINCREMENT,
+            jar_id INTEGER NOT NULL,
+            jar_name TEXT NOT NULL,
+            version INTEGER NOT NULL,
+            access INTEGER NOT NULL,
+            class_name TEXT NOT NULL,
+            super_class_name TEXT,
+            is_interface INTEGER NOT NULL
+        );
+    </update>
+    <update id="createClassFileTable">
+        CREATE TABLE IF NOT EXISTS class_file_table
+        (
+            cf_id INTEGER NOT NULL
+            CONSTRAINT class_table_pk PRIMARY KEY AUTOINCREMENT,
+            class_name TEXT NOT NULL,
+            path_str TEXT NOT NULL,
+            java_path TEXT,
+            jar_name TEXT NOT NULL,
+            jar_id INTEGER NOT NULL
+        );
+    </update>
+    <update id="createMemberTable">
+        CREATE TABLE IF NOT EXISTS member_table
+        (
+            mid INTEGER NOT NULL
+            CONSTRAINT member_table_pk PRIMARY KEY AUTOINCREMENT,
+            member_name TEXT NOT NULL,
+            modifiers INTEGER NOT NULL,
+            value TEXT NOT NULL,
+            method_desc TEXT NOT NULL,
+            method_signature TEXT,
+            type_class_name TEXT NOT NULL,
+            class_name TEXT NOT NULL,
+            jar_id INTEGER NOT NULL
+        );
+    </update>
+    <update id="createMethodTable">
+        CREATE TABLE IF NOT EXISTS method_table
+        (
+            method_id INTEGER NOT NULL
+            CONSTRAINT method_table_pk PRIMARY KEY AUTOINCREMENT,
+            method_name TEXT NOT NULL,
+            method_desc TEXT NOT NULL,
+            is_static INTEGER NOT NULL,
+            class_name TEXT NOT NULL,
+            access INTEGER NOT NULL,
+            line_number INTEGER NOT NULL,
+            jar_id INTEGER NOT NULL
+        );
+    </update>
+    <update id="createAnnoTable">
+        CREATE TABLE IF NOT EXISTS anno_table
+        (
+            anno_id INTEGER NOT NULL
+            CONSTRAINT anno_table_pk PRIMARY KEY AUTOINCREMENT,
+            anno_name TEXT NOT NULL,
+            method_name TEXT,
+            class_name TEXT,
+            visible INTEGER NOT NULL,
+            jar_id INTEGER NOT NULL
+        );
+    </update>
+    <update id="createInterfaceTable">
+        CREATE TABLE IF NOT EXISTS interface_table
+        (
+            iid INTEGER NOT NULL
+            CONSTRAINT interface_table_pk PRIMARY KEY AUTOINCREMENT,
+            interface_name TEXT NOT NULL,
+            class_name TEXT NOT NULL,
+            jar_id INTEGER NOT NULL
+        );
+    </update>
+    <update id="createMethodCallTable">
+        CREATE TABLE IF NOT EXISTS method_call_table
+        (
+            mc_id INTEGER NOT NULL
+            CONSTRAINT method_call_table_pk PRIMARY KEY AUTOINCREMENT,
+            caller_method_name TEXT NOT NULL,
+            caller_class_name TEXT NOT NULL,
+            caller_method_desc TEXT NOT NULL,
+            caller_jar_id INTEGER NOT NULL,
+            callee_method_name TEXT NOT NULL,
+            callee_method_desc TEXT NOT NULL,
+            callee_class_name TEXT NOT NULL,
+            callee_jar_id INTEGER NOT NULL,
+            op_code INTEGER NOT NULL
+        );
+    </update>
+    <update id="createMethodImplTable">
+        CREATE TABLE IF NOT EXISTS method_impl_table
+        (
+            impl_id INTEGER NOT NULL
+            CONSTRAINT method_impl_table_pk PRIMARY KEY AUTOINCREMENT,
+            class_name TEXT NOT NULL,
+            method_name TEXT NOT NULL,
+            method_desc TEXT NOT NULL,
+            impl_class_name TEXT NOT NULL,
+            class_jar_id INTEGER NOT NULL,
+            impl_class_jar_id INTEGER NOT NULL
+        );
+    </update>
+    <update id="createStringTable">
+        CREATE TABLE IF NOT EXISTS string_table
+        (
+            sid INTEGER NOT NULL
+            CONSTRAINT string_table_pk PRIMARY KEY AUTOINCREMENT,
+            value TEXT NOT NULL,
+            access INTEGER NOT NULL,
+            method_desc TEXT NOT NULL,
+            method_name TEXT NOT NULL,
+            class_name TEXT NOT NULL,
+            jar_name TEXT NOT NULL,
+            jar_id INTEGER NOT NULL
+        );
+    </update>
+</mapper>

@@ -1,0 +1,19 @@
+.idea/
+target/
+example/
+*.iml
+
+# runtime outputs
+jar-analyzer.db
+jar-analyzer-classes/
+jar-analyzer-sources/
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# local tool state
+.omc/
+.claude-flow/
+.claude/

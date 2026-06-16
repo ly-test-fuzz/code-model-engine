@@ -1,0 +1,31 @@
+name: code-model-engine build
+
+on:
+  workflow_dispatch:
+
+env:
+  VERSION: "1.2.0-cm1"
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: set up java 8
+        uses: actions/setup-java@v4
+        with:
+          java-version: '8'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: build
+        run: mvn -B clean package -DskipTests
+
+      - name: upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-model-engine
+          path: target/code-model-engine-${{ env.VERSION }}-jar-with-dependencies.jar

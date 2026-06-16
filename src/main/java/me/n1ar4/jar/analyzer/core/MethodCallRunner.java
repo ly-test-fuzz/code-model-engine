@@ -1,0 +1,50 @@
+/*
+ * GPLv3 License
+ *
+ * Copyright (c) 2022-2026 4ra1n (Jar Analyzer Team)
+ *
+ * This project is distributed under the GPLv3 license.
+ *
+ * https://github.com/jar-analyzer/jar-analyzer/blob/master/LICENSE
+ */
+
+package me.n1ar4.jar.analyzer.core;
+
+import me.n1ar4.jar.analyzer.core.asm.MethodCallClassVisitor;
+import me.n1ar4.jar.analyzer.core.reference.MethodReference;
+import me.n1ar4.jar.analyzer.engine.EngineConst;
+import me.n1ar4.jar.analyzer.engine.log.LogManager;
+import me.n1ar4.jar.analyzer.engine.log.Logger;
+import me.n1ar4.jar.analyzer.engine.utils.StackMapFrameHandler;
+import me.n1ar4.jar.analyzer.entity.ClassFileEntity;
+import org.objectweb.asm.ClassReader;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
+
+public class MethodCallRunner {
+    private static final Logger logger = LogManager.getLogger();
+
+    public static void start(Set<ClassFileEntity> classFileList, HashMap<MethodReference.Handle,
+            HashSet<MethodReference.Handle>> methodCalls) {
+        logger.info("start analyze method calls");
+        for (ClassFileEntity file : classFileList) {
+            try {
+                MethodCallClassVisitor mcv =
+                        new MethodCallClassVisitor(methodCalls);
+                ClassReader cr = new ClassReader(file.getFile());
+                cr.accept(mcv, EngineConst.AnalyzeASMOptions);
+            } catch (IndexOutOfBoundsException e) {
+                // Handle corrupted StackMapTable by falling back to SKIP_FRAMES mode
+                if (!StackMapFrameHandler.handleParseException(file,
+                        new MethodCallClassVisitor(methodCalls),
+                        logger, "method call analysis", e)) {
+                    logger.error("method call error: {}", e.toString());
+                }
+            } catch (Exception e) {
+                logger.error("method call error: {}", e.toString());
+            }
+        }
+    }
+}
