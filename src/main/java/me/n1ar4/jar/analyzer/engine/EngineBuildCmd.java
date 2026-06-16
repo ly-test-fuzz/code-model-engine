@@ -16,25 +16,16 @@ import com.beust.jcommander.Parameters;
 /**
  * CLI 命令行参数定义
  */
-@Parameters(commandDescription = "Build SQLite database from JAR files")
+@Parameters(commandDescription = "Build SQLite database from JAR/WAR files")
 public class EngineBuildCmd {
-    @Parameter(names = {"--jar", "-j"}, description = "JAR file or directory path (required)")
-    public String jarPath;
+    @Parameter(names = {"--path", "-p"}, description = "JAR/WAR file or directory path (required)")
+    public String path;
 
     @Parameter(names = {"--rt"}, description = "rt.jar path (optional, for JDK class analysis)")
     public String rtJarPath;
 
-    @Parameter(names = {"--quick", "-q"}, description = "Quick mode (method calls only, skip inheritance/string/spring)")
-    public boolean quickMode = false;
-
-    @Parameter(names = {"--no-fix-impl"}, description = "Disable automatic method implementation fix (not recommended)")
-    public boolean noFixMethodImpl = false;
-
-    @Parameter(names = {"--decompile-out"}, description = "Prewarm decompile: eagerly decompile ALL jar/loose units into the standard sources dir (jar-analyzer-sources). No-arg flag; default off (sources are produced on demand by the 'source' command).")
-    public boolean decompilePrewarm = false;
-
-    @Parameter(names = {"--decompile-blacklist"}, description = "Comma-separated jar filename substrings to SKIP decompiling (e.g. spring-,jackson-,h2-). Default empty = decompile all. Does NOT affect the fact DB (always full).")
-    public String decompileBlacklist;
+    @Parameter(names = {"--decompile-all"}, description = "Eagerly decompile ALL jar/loose units into jar-analyzer-sources/ during build. Default off (sources produced on demand by 'source' command).")
+    public boolean decompileAll = false;
 
     @Parameter(names = {"--log-level"}, description = "Log level: DEBUG, INFO, WARN, ERROR (default: INFO)")
     public String logLevel;

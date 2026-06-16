@@ -119,9 +119,9 @@ public class SourceCli {
             throw new IllegalStateException("no class files for unit of " + fqn);
         }
 
-        // 5. 整单元批量反编译落地（blacklist=null：用户显式要这个类的源码，不跳过）。
+        // 5. 整单元批量反编译落地。
         //    inputRoot=classesRoot（镜像根），输出镜像相对结构进 sourcesRoot。
-        StructuredDecompiler.decompileTree(classesRoot, sourcesRoot, unit, null);
+        StructuredDecompiler.decompileTree(classesRoot, sourcesRoot, unit);
 
         // 6. 复查：成功则返回；否则该类反编译失败（CFR+FernFlower 双双失败）
         boolean ok = Files.exists(targetJava);

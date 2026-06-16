@@ -33,7 +33,7 @@ public interface EngineConst {
     String classesDir = "jar-analyzer-classes";
     /**
      * 懒反编译落地 .java 树的根（持久产物，与 DB 同级、cwd 相对）。
-     * 结构镜像 classesDir，由 SourceCli 按 jar/loose 单元增量产出，或 --decompile-out 预热时全量产出。
+     * 结构镜像 classesDir，由 SourceCli 按 jar/loose 单元增量产出，或 --decompile-all 时全量产出。
      */
     String sourcesDir = "jar-analyzer-sources";
 }

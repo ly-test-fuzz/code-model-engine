@@ -73,21 +73,18 @@ public class StructuredDecompiler {
     /**
      * 按原始来源单元（jar / loose 组）分组反编译，输出镜像 inputRoot 的相对结构。
      * <p>
-     * 供两条路径共用：① build 期 --decompile-out 预热（传入全部类）；
+     * 供两条路径共用：① build 期 --decompile-all 全量反编译（传入全部类）；
      * ② SourceCli 懒反编译（传入单个 jar/loose 单元的类子集）。分组与输出路径由
      * classFiles 各元素的 jarId/path 决定，与传入的是全量还是子集无关。
      *
      * @param inputRoot          归一化镜像根（EngineConst.classesDir）；输出按相对此根的路径镜像
      * @param outputDir          反编译 .java 输出根目录（EngineConst.sourcesDir）
      * @param classFiles         待反编译的类（含 origin 线索：className/jarName/jarId/path）
-     * @param decompileBlacklist 反编译黑名单（按 jar 文件名子串匹配，命中则整 jar 跳过）。
-     *                           默认空 = 全量。仅影响反编译产物，不影响事实库。
      * @return 成功写出的 .java 文件数
      */
     public static int decompileTree(Path inputRoot,
                                     Path outputDir,
-                                    Collection<ClassFileEntity> classFiles,
-                                    List<String> decompileBlacklist) {
+                                    Collection<ClassFileEntity> classFiles) {
         if (classFiles == null || classFiles.isEmpty()) {
             logger.warn("no class files to decompile");
             return 0;
@@ -103,7 +100,6 @@ public class StructuredDecompiler {
         Path mirrorBase = Files.isDirectory(inputRootAbs) ? inputRootAbs : inputRootAbs.getParent();
 
         Map<String, Group> groups = new LinkedHashMap<>();
-        int blacklisted = 0;
 
         for (ClassFileEntity cf : classFiles) {
             String className = cf.getClassName();
@@ -139,15 +135,6 @@ public class StructuredDecompiler {
             boolean isLoose = cf.getJarId() == null || cf.getJarId() < 0
                     || "class".equals(cf.getJarName());
 
-            // D11：黑名单按 jar 名判定（region 类的 jarName=原归档名）；loose 类（应用自身）不黑名单
-            if (!isLoose) {
-                String jn = cf.getJarName();
-                if (jn != null && isBlacklisted(jn, decompileBlacklist)) {
-                    blacklisted++;
-                    continue;
-                }
-            }
-
             // D11：输出路径统一由 mirror 相对路径决定（结构已在归一化镜像就位），
             // 彻底丢弃 jarId→absPath 查表（旧平铺根因）。groupKey 仍按 jar 分组，
             // 使 CFR 在同 jar 内解析兄弟/内部类引用（仅影响分组，不影响输出路径）。
@@ -175,10 +162,6 @@ public class StructuredDecompiler {
                 g.reads.add(readPath.toString());
                 g.fqnToTarget.put(outerFqn, targetJava.toAbsolutePath().normalize().toString());
             }
-        }
-
-        if (blacklisted > 0) {
-            logger.info("decompile blacklist skipped {} classes", blacklisted);
         }
 
         int[] writtenCount = {0};
@@ -307,19 +290,4 @@ public class StructuredDecompiler {
         }
     }
 
-    private static boolean isBlacklisted(String jarFileName, List<String> blacklist) {
-        if (blacklist == null || blacklist.isEmpty()) {
-            return false;
-        }
-        String lower = jarFileName.toLowerCase(Locale.ROOT);
-        for (String b : blacklist) {
-            if (b == null || b.trim().isEmpty()) {
-                continue;
-            }
-            if (lower.contains(b.trim().toLowerCase(Locale.ROOT))) {
-                return true;
-            }
-        }
-        return false;
-    }
 }

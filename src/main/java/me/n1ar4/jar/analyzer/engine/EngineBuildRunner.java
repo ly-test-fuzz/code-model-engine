@@ -59,7 +59,6 @@ public class EngineBuildRunner {
 
         Path jarPath = config.getJarPath();
         Path rtJarPath = config.getRtJarPath();
-        boolean quickMode = config.isQuickMode();
 
         Map<String, Integer> jarIdMap = new HashMap<>();
         List<ClassFileEntity> cfs;
@@ -165,68 +164,59 @@ public class EngineBuildRunner {
         MethodCallRunner.start(AnalyzeEnv.classFileList, AnalyzeEnv.methodCalls);
         callback.onProgress(40);
 
-        if (!quickMode) {
-            AnalyzeEnv.inheritanceMap = InheritanceRunner.derive(AnalyzeEnv.classMap);
-            callback.onProgress(50);
-            logger.info("build inheritance");
-            callback.onInfo("build inheritance");
+        AnalyzeEnv.inheritanceMap = InheritanceRunner.derive(AnalyzeEnv.classMap);
+        callback.onProgress(50);
+        logger.info("build inheritance");
+        callback.onInfo("build inheritance");
 
-            Map<MethodReference.Handle, Set<MethodReference.Handle>> implMap =
-                    InheritanceRunner.getAllMethodImplementations(
-                            AnalyzeEnv.inheritanceMap, AnalyzeEnv.methodMap);
-            DatabaseManager.saveImpls(implMap);
-            callback.onProgress(60);
+        Map<MethodReference.Handle, Set<MethodReference.Handle>> implMap =
+                InheritanceRunner.getAllMethodImplementations(
+                        AnalyzeEnv.inheritanceMap, AnalyzeEnv.methodMap);
+        DatabaseManager.saveImpls(implMap);
+        callback.onProgress(60);
 
-            if (config.isFixMethodImpl()) {
-                for (Map.Entry<MethodReference.Handle, Set<MethodReference.Handle>> entry :
-                        implMap.entrySet()) {
-                    MethodReference.Handle k = entry.getKey();
-                    Set<MethodReference.Handle> v = entry.getValue();
-                    HashSet<MethodReference.Handle> calls = AnalyzeEnv.methodCalls.get(k);
-                    if (calls != null) {
-                        calls.addAll(v);
-                    }
-                }
-            } else {
-                logger.warn("enable fix method impl/override is recommend");
+        for (Map.Entry<MethodReference.Handle, Set<MethodReference.Handle>> entry :
+                implMap.entrySet()) {
+            MethodReference.Handle k = entry.getKey();
+            Set<MethodReference.Handle> v = entry.getValue();
+            HashSet<MethodReference.Handle> calls = AnalyzeEnv.methodCalls.get(k);
+            if (calls != null) {
+                calls.addAll(v);
             }
-
-            DatabaseManager.saveMethodCalls(AnalyzeEnv.methodCalls);
-            callback.onProgress(70);
-            logger.info("build extra inheritance");
-            callback.onInfo("build extra inheritance");
-
-            for (ClassFileEntity file : AnalyzeEnv.classFileList) {
-                try {
-                    byte[] fileBytes = file.getFile();
-                    if (fileBytes == null) {
-                        logger.error("cannot read class file for string analysis: {}", file.getClassName());
-                        continue;
-                    }
-                    StringClassVisitor dcv = new StringClassVisitor(
-                            AnalyzeEnv.strMap, AnalyzeEnv.classMap, AnalyzeEnv.methodMap);
-                    ClassReader cr = new ClassReader(fileBytes);
-                    cr.accept(dcv, EngineConst.AnalyzeASMOptions);
-                } catch (IndexOutOfBoundsException e) {
-                    if (!StackMapFrameHandler.handleParseException(file,
-                            new StringClassVisitor(AnalyzeEnv.strMap,
-                                    AnalyzeEnv.classMap, AnalyzeEnv.methodMap),
-                            logger, "string analysis", e)) {
-                        logger.error("string analyze error: {}", e.toString());
-                    }
-                } catch (Exception ex) {
-                    logger.error("string analyze error: {}", ex.toString());
-                }
-            }
-
-            callback.onProgress(80);
-            DatabaseManager.saveStrMap(AnalyzeEnv.strMap, AnalyzeEnv.stringAnnoMap);
-
-            callback.onProgress(90);
-        } else {
-            callback.onProgress(70);
-            DatabaseManager.saveMethodCalls(AnalyzeEnv.methodCalls);
         }
+
+        DatabaseManager.saveMethodCalls(AnalyzeEnv.methodCalls);
+        callback.onProgress(70);
+        logger.info("build extra inheritance");
+        callback.onInfo("build extra inheritance");
+
+        for (ClassFileEntity file : AnalyzeEnv.classFileList) {
+            try {
+                byte[] fileBytes = file.getFile();
+                if (fileBytes == null) {
+                    logger.error("cannot read class file for string analysis: {}", file.getClassName());
+                    continue;
+                }
+                StringClassVisitor dcv = new StringClassVisitor(
+                        AnalyzeEnv.strMap, AnalyzeEnv.classMap, AnalyzeEnv.methodMap);
+                ClassReader cr = new ClassReader(fileBytes);
+                cr.accept(dcv, EngineConst.AnalyzeASMOptions);
+            } catch (IndexOutOfBoundsException e) {
+                if (!StackMapFrameHandler.handleParseException(file,
+                        new StringClassVisitor(AnalyzeEnv.strMap,
+                                AnalyzeEnv.classMap, AnalyzeEnv.methodMap),
+                        logger, "string analysis", e)) {
+                    logger.error("string analyze error: {}", e.toString());
+                }
+            } catch (Exception ex) {
+                logger.error("string analyze error: {}", ex.toString());
+            }
+        }
+
+        callback.onProgress(80);
+        DatabaseManager.saveStrMap(AnalyzeEnv.strMap, AnalyzeEnv.stringAnnoMap);
+
+        callback.onProgress(90);
 
         logger.info("build database finish");
         callback.onInfo("build database finish");
@@ -235,21 +225,17 @@ public class EngineBuildRunner {
         // build 期不再回写（取代旧的"反编译后回写再 insert"）。
         DatabaseManager.saveClassFiles(AnalyzeEnv.classFileList);
 
-        // --decompile-out 预热（可选，无实参 flag）：遍历全部 jar/loose 单元，
-        // 全量反编译进标准 sources 根（EngineConst.sourcesDir）。默认不预热——
+        // --decompile-all：全量反编译进标准 sources 根。默认关闭——
         // build 只产事实库 + 持久 classes 镜像，源码由 SourceCli 按需落地。
-        if (config.isDecompilePrewarm()) {
+        if (config.isDecompileAll()) {
             Path sourcesRoot = Paths.get(EngineConst.sourcesDir).toAbsolutePath().normalize();
-            logger.info("decompile prewarm -> {}", sourcesRoot);
-            callback.onInfo("decompile prewarm start");
-            // inputRoot = mirrorRoot（持久 classes 镜像根）；每个类输出 = sourcesRoot.resolve(
-            // relativize(mirrorRoot, classPath))，结构已在镜像就位。
+            logger.info("decompile all -> {}", sourcesRoot);
+            callback.onInfo("decompile all start");
             int produced = me.n1ar4.jar.analyzer.decompile.StructuredDecompiler
                     .decompileTree(mirrorRoot, sourcesRoot,
-                            AnalyzeEnv.classFileList,
-                            config.getDecompileBlacklist());
-            logger.info("decompile prewarm produced {} java files", produced);
-            callback.onInfo("decompile prewarm finish");
+                            AnalyzeEnv.classFileList);
+            logger.info("decompile all produced {} java files", produced);
+            callback.onInfo("decompile all finish");
         }
 
         // classes 镜像为持久产物，build 后不再清理——它是 class_file_table.path_str 的实体，
@@ -280,11 +266,9 @@ public class EngineBuildRunner {
         AnalyzeEnv.strMap.clear();
         AnalyzeEnv.stringAnnoMap.clear();
         AnalyzeEnv.corruptedFiles.clear();
-        if (!quickMode) {
-            if (AnalyzeEnv.inheritanceMap != null) {
-                AnalyzeEnv.inheritanceMap.getInheritanceMap().clear();
-                AnalyzeEnv.inheritanceMap.getSubClassMap().clear();
-            }
+        if (AnalyzeEnv.inheritanceMap != null) {
+            AnalyzeEnv.inheritanceMap.getInheritanceMap().clear();
+            AnalyzeEnv.inheritanceMap.getSubClassMap().clear();
         }
         System.gc();
     }

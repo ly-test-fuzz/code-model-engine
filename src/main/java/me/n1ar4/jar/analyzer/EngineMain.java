@@ -60,39 +60,24 @@ public class EngineMain {
         logger.info("=== Jar Analyzer Engine {} ===", EngineConst.version);
         logger.info("Build SQLite database from JAR/WAR files");
 
-        if (cmd.jarPath == null || cmd.jarPath.isEmpty()) {
-            logger.error("Error: --jar parameter is required");
+        if (cmd.path == null || cmd.path.isEmpty()) {
+            logger.error("Error: --path parameter is required");
             jc.usage();
             System.exit(1);
             return;
         }
 
-        Path jarPath = Paths.get(cmd.jarPath);
+        Path jarPath = Paths.get(cmd.path);
         if (!Files.exists(jarPath)) {
-            logger.error("Error: JAR path does not exist: {}", cmd.jarPath);
+            logger.error("Error: path does not exist: {}", cmd.path);
             System.exit(1);
             return;
         }
 
-        // Build EngineConfig from CLI parameters
         EngineConfig config = new EngineConfig();
         config.setJarPath(jarPath);
-        config.setQuickMode(cmd.quickMode);
-        config.setFixMethodImpl(!cmd.noFixMethodImpl);
         config.setProgressCallback(ProgressCallback.CONSOLE);
-
-        config.setDecompilePrewarm(cmd.decompilePrewarm);
-
-        // 反编译黑名单（逗号分隔 jar 文件名子串）；默认空 = 全量反编译。不影响事实库。
-        if (cmd.decompileBlacklist != null && !cmd.decompileBlacklist.trim().isEmpty()) {
-            java.util.List<String> bl = new java.util.ArrayList<>();
-            for (String s : cmd.decompileBlacklist.split(",")) {
-                if (!s.trim().isEmpty()) {
-                    bl.add(s.trim());
-                }
-            }
-            config.setDecompileBlacklist(bl);
-        }
+        config.setDecompileAll(cmd.decompileAll);
 
         if (cmd.rtJarPath != null && !cmd.rtJarPath.isEmpty()) {
             Path rtPath = Paths.get(cmd.rtJarPath);
@@ -103,14 +88,11 @@ public class EngineMain {
             }
         }
 
-        // Print config summary
         logger.info("Configuration:");
-        logger.info("  JAR Path:      {}", config.getJarPath());
+        logger.info("  Path:          {}", config.getJarPath());
         logger.info("  DB Path:       {}", EngineConst.dbFile);
         logger.info("  Classes Dir:   {}", EngineConst.classesDir);
-        logger.info("  Quick Mode:    {}", config.isQuickMode());
-        logger.info("  Fix Impl:      {}", config.isFixMethodImpl());
-        logger.info("  Decompile:     {}", config.isDecompilePrewarm() ? "prewarm (all units)" : "on-demand (source cmd)");
+        logger.info("  Decompile:     {}", config.isDecompileAll() ? "all (full)" : "on-demand (source cmd)");
 
         long startTime = System.currentTimeMillis();
 
