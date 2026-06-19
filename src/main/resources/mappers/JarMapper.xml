@@ -13,10 +13,10 @@
 <mapper namespace="me.n1ar4.jar.analyzer.core.mapper.JarMapper">
     <insert id="insertJar" parameterType="JarEntity">
         INSERT INTO jar_table
-        (jar_name, jar_abs_path)
+        (jar_name, jar_abs_path, content_hash)
         VALUES
         <foreach collection="list" separator="," item="item">
-            (#{item.jarName}, #{item.jarAbsPath})
+            (#{item.jarName}, #{item.jarAbsPath}, #{item.contentHash})
         </foreach>
     </insert>
     <select id="selectJarByAbsPath">

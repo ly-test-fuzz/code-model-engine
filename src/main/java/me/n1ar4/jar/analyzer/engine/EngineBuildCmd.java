@@ -27,6 +27,9 @@ public class EngineBuildCmd {
     @Parameter(names = {"--decompile-all"}, description = "Eagerly decompile ALL jar/loose units into jar-analyzer-sources/ during build. Default off (sources produced on demand by 'source' command).")
     public boolean decompileAll = false;
 
+    @Parameter(names = {"--force-rebuild"}, description = "Force full rebuild even if database already exists (discards existing data).")
+    public boolean forceRebuild = false;
+
     @Parameter(names = {"--log-level"}, description = "Log level: DEBUG, INFO, WARN, ERROR (default: INFO)")
     public String logLevel;
 

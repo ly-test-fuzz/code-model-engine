@@ -13,10 +13,10 @@
 <mapper namespace="me.n1ar4.jar.analyzer.core.mapper.ClassFileMapper">
     <insert id="insertClassFile" parameterType="ClassFileEntity">
         INSERT INTO class_file_table
-        (class_name, path_str, java_path, jar_name, jar_id)
+        (class_name, path_str, java_path, jar_name, jar_id, content_hash)
         VALUES
         <foreach collection="list" separator="," item="item">
-            (#{item.className}, #{item.pathStr}, #{item.javaPath}, #{item.jarName}, #{item.jarId})
+            (#{item.className}, #{item.pathStr}, #{item.javaPath}, #{item.jarName}, #{item.jarId}, #{item.contentHash})
         </foreach>
     </insert>
 </mapper>

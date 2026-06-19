@@ -30,4 +30,14 @@ public interface InitMapper {
     void createMethodImplTable();
 
     void createStringTable();
+
+    void createBatchMetaTable();
+
+    void migrateJarTableAddHash();
+
+    void migrateJarTableAddBatchId();
+
+    void migrateClassFileTableAddHash();
+
+    void migrateClassFileTableAddBatchId();
 }

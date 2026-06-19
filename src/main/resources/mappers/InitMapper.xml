@@ -17,7 +17,9 @@
             jid INTEGER NOT NULL
             CONSTRAINT jar_table_pk PRIMARY KEY AUTOINCREMENT,
             jar_name TEXT NOT NULL,
-            jar_abs_path TEXT NOT NULL
+            jar_abs_path TEXT NOT NULL,
+            content_hash TEXT,
+            batch_id INTEGER NOT NULL DEFAULT 1
         );
     </update>
     <update id="createClassTable">
@@ -43,7 +45,9 @@
             path_str TEXT NOT NULL,
             java_path TEXT,
             jar_name TEXT NOT NULL,
-            jar_id INTEGER NOT NULL
+            jar_id INTEGER NOT NULL,
+            content_hash TEXT,
+            batch_id INTEGER NOT NULL DEFAULT 1
         );
     </update>
     <update id="createMemberTable">
@@ -139,5 +143,25 @@
             jar_name TEXT NOT NULL,
             jar_id INTEGER NOT NULL
         );
+    </update>
+    <update id="createBatchMetaTable">
+        CREATE TABLE IF NOT EXISTS batch_meta
+        (
+            batch_id INTEGER NOT NULL PRIMARY KEY,
+            input_path TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+    </update>
+    <update id="migrateJarTableAddHash">
+        ALTER TABLE jar_table ADD COLUMN content_hash TEXT;
+    </update>
+    <update id="migrateJarTableAddBatchId">
+        ALTER TABLE jar_table ADD COLUMN batch_id INTEGER NOT NULL DEFAULT 1;
+    </update>
+    <update id="migrateClassFileTableAddHash">
+        ALTER TABLE class_file_table ADD COLUMN content_hash TEXT;
+    </update>
+    <update id="migrateClassFileTableAddBatchId">
+        ALTER TABLE class_file_table ADD COLUMN batch_id INTEGER NOT NULL DEFAULT 1;
     </update>
 </mapper>

@@ -83,6 +83,12 @@ public class DatabaseManager {
         initMapper.createMethodCallTable();
         initMapper.createMethodImplTable();
         initMapper.createStringTable();
+        initMapper.createBatchMetaTable();
+        // schema migration for existing DBs (ALTER TABLE is no-op if column exists via CREATE TABLE)
+        try { initMapper.migrateJarTableAddHash(); } catch (Exception ignored) {}
+        try { initMapper.migrateJarTableAddBatchId(); } catch (Exception ignored) {}
+        try { initMapper.migrateClassFileTableAddHash(); } catch (Exception ignored) {}
+        try { initMapper.migrateClassFileTableAddBatchId(); } catch (Exception ignored) {}
         logger.info("create database finish");
     }
 
@@ -118,6 +124,19 @@ public class DatabaseManager {
         int i = jarMapper.insertJar(js);
         if (i != 0) {
             logger.debug("save jar (named) finish");
+        }
+    }
+
+    public static void saveJarWithNameAndHash(String jarAbsKey, String jarName, String contentHash) {
+        JarEntity en = new JarEntity();
+        en.setJarAbsPath(jarAbsKey);
+        en.setJarName(jarName);
+        en.setContentHash(contentHash);
+        List<JarEntity> js = new ArrayList<>();
+        js.add(en);
+        int i = jarMapper.insertJar(js);
+        if (i != 0) {
+            logger.debug("save jar (named+hash) finish");
         }
     }
 

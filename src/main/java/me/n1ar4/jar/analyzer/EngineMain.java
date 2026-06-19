@@ -58,7 +58,6 @@ public class EngineMain {
         }
 
         logger.info("=== Jar Analyzer Engine {} ===", EngineConst.version);
-        logger.info("Build SQLite database from JAR/WAR files");
 
         if (cmd.path == null || cmd.path.isEmpty()) {
             logger.error("Error: --path parameter is required");
@@ -73,6 +72,29 @@ public class EngineMain {
             System.exit(1);
             return;
         }
+
+        // 检测库已存在 → 自动走增量路径（容错：AI 重复调用 build 不会覆盖已有数据）
+        boolean dbExists = Files.exists(Paths.get(EngineConst.dbFile));
+        if (dbExists && !cmd.forceRebuild) {
+            logger.info("database already exists, auto-routing to incremental add");
+            logger.info("  (use --force-rebuild to discard and rebuild from scratch)");
+            AddCli.main(new String[]{cmd.path, "--db", EngineConst.dbFile});
+            return;
+        }
+
+        // force-rebuild: 删除旧 DB 确保全量重建干净
+        if (cmd.forceRebuild && dbExists) {
+            logger.info("--force-rebuild: removing existing database");
+            try {
+                Files.deleteIfExists(Paths.get(EngineConst.dbFile));
+            } catch (Exception e) {
+                logger.error("cannot delete old database: {}", e.toString());
+                System.exit(1);
+                return;
+            }
+        }
+
+        logger.info("Build SQLite database from JAR/WAR files");
 
         EngineConfig config = new EngineConfig();
         config.setJarPath(jarPath);

@@ -198,11 +198,9 @@ public class QueryCli {
     // ---- JDBC + JSON 输出 ----
 
     private static void query(String sql, String... params) throws Exception {
-        // 源码路径推导基准（cwd 相对，与全工具约定一致；与 SourceCli 懒反编译落地位置对应）
+        // 源码路径推导基准（cwd 相对，与全工具约定一致；紧贴模式：.java 在 .class 同级）
         java.nio.file.Path classesRoot = java.nio.file.Paths.get(
                 me.n1ar4.jar.analyzer.engine.EngineConst.classesDir).toAbsolutePath().normalize();
-        java.nio.file.Path sourcesRoot = java.nio.file.Paths.get(
-                me.n1ar4.jar.analyzer.engine.EngineConst.sourcesDir).toAbsolutePath().normalize();
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + dbFile);
              PreparedStatement ps = conn.prepareStatement(sql)) {
             for (int i = 0; i < params.length; i++) {
@@ -229,7 +227,7 @@ public class QueryCli {
                             String javaPath = null;
                             boolean landed = false;
                             if (value != null) {
-                                java.nio.file.Path jp = SourceCli.deriveJavaPath(classesRoot, sourcesRoot, value);
+                                java.nio.file.Path jp = SourceCli.deriveJavaPath(classesRoot, value);
                                 javaPath = jp.toString();
                                 landed = java.nio.file.Files.exists(jp);
                             }

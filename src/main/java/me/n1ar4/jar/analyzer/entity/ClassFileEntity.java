@@ -26,6 +26,7 @@ public class ClassFileEntity {
     private String javaPath;
     private String jarName;
     private Integer jarId;
+    private String contentHash;
 
     public int getCfId() {
         return cfId;
@@ -81,6 +82,14 @@ public class ClassFileEntity {
 
     public void setJarId(Integer jarId) {
         this.jarId = jarId;
+    }
+
+    public String getContentHash() {
+        return contentHash;
+    }
+
+    public void setContentHash(String contentHash) {
+        this.contentHash = contentHash;
     }
 
     public ClassFileEntity() {

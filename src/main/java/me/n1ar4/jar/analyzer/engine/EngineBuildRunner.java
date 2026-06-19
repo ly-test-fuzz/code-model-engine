@@ -73,10 +73,21 @@ public class EngineBuildRunner {
         // 2. walk 镜像找 *.class，按最长前缀匹配 region 分配 jarId（保住"类来自哪个 jar"的事实），
         //    未命中 region 的是真散装类（如 war 旁已展开目录的 WEB-INF/classes）→ jarId=-1。
         Path mirrorRoot = Paths.get(EngineConst.classesDir).toAbsolutePath().normalize();
-        logger.info("D11 normalize input -> mirror: {}", mirrorRoot);
+        Path batchDir = mirrorRoot.resolve(EngineConst.batchPrefix + "1");
+        logger.info("D11 normalize input -> batch: {}", batchDir);
         callback.onInfo("normalize: structure-mirror + recursive explode");
+        // 全量 build：清空整个镜像根再播种到 path_1
+        if (Files.exists(mirrorRoot)) {
+            deleteDir(mirrorRoot.toFile());
+        }
+        try {
+            Files.createDirectories(mirrorRoot);
+        } catch (Exception e) {
+            logger.error("cannot create mirror root: {}", e.toString());
+            return;
+        }
         List<NormalizeRunner.ArchiveRegion> regions =
-                NormalizeRunner.normalize(jarPath, mirrorRoot, 10);
+                NormalizeRunner.normalizeAppend(jarPath, mirrorRoot, EngineConst.batchPrefix + "1", 10);
         if (rtJarPath != null) {
             callback.onInfo("analyze with rt.jar file (note: D11 mirror mode, rt.jar handled as region)");
         }
@@ -84,10 +95,11 @@ public class EngineBuildRunner {
         // 为每个 region 分配 jarId（用原归档在镜像中的"原始位置路径"作唯一 key，保住 jarName 显示）
         Map<String, Integer> regionPrefixToJarId = new HashMap<>();
         for (NormalizeRunner.ArchiveRegion region : regions) {
-            // 唯一 key：region 解压目录的绝对路径（稳定且唯一）；jarName 由 archiveName 决定
             String jarKey = mirrorRoot.resolve(region.prefix).toAbsolutePath().normalize().toString()
                     + "!" + region.archiveName;
-            DatabaseManager.saveJarWithName(jarKey, region.archiveName);
+            // 计算 region 内容 hash（全量 build 时也写，支持后续增量判重）
+            String regionHash = AddCli.hashDirectory(mirrorRoot.resolve(region.prefix));
+            DatabaseManager.saveJarWithNameAndHash(jarKey, region.archiveName, regionHash);
             JarEntity je = DatabaseManager.getJarId(jarKey);
             if (je != null) {
                 regionPrefixToJarId.put(region.prefix, je.getJid());
@@ -225,14 +237,13 @@ public class EngineBuildRunner {
         // build 期不再回写（取代旧的"反编译后回写再 insert"）。
         DatabaseManager.saveClassFiles(AnalyzeEnv.classFileList);
 
-        // --decompile-all：全量反编译进标准 sources 根。默认关闭——
+        // --decompile-all：全量反编译紧贴 classes 镜像落地。默认关闭——
         // build 只产事实库 + 持久 classes 镜像，源码由 SourceCli 按需落地。
         if (config.isDecompileAll()) {
-            Path sourcesRoot = Paths.get(EngineConst.sourcesDir).toAbsolutePath().normalize();
-            logger.info("decompile all -> {}", sourcesRoot);
+            logger.info("decompile all -> {} (in-place)", mirrorRoot);
             callback.onInfo("decompile all start");
             int produced = me.n1ar4.jar.analyzer.decompile.StructuredDecompiler
-                    .decompileTree(mirrorRoot, sourcesRoot,
+                    .decompileTree(mirrorRoot, mirrorRoot,
                             AnalyzeEnv.classFileList);
             logger.info("decompile all produced {} java files", produced);
             callback.onInfo("decompile all finish");
@@ -246,6 +257,17 @@ public class EngineBuildRunner {
         callback.onStats("dbSize", fileSizeMB);
 
         callback.onProgress(100);
+
+        // 写 batch_meta（全量 build 是 batch_id=1）
+        try (java.sql.Connection conn = java.sql.DriverManager.getConnection("jdbc:sqlite:" + EngineConst.dbFile);
+             java.sql.PreparedStatement ps = conn.prepareStatement(
+                     "INSERT OR IGNORE INTO batch_meta (batch_id, input_path) VALUES (?, ?)")) {
+            ps.setInt(1, 1);
+            ps.setString(2, jarPath.toAbsolutePath().toString());
+            ps.executeUpdate();
+        } catch (Exception e) {
+            logger.warn("write batch_meta failed: {}", e.toString());
+        }
 
         // Report corrupted files
         if (!AnalyzeEnv.corruptedFiles.isEmpty()) {
@@ -319,8 +341,18 @@ public class EngineBuildRunner {
             }
             ClassFileEntity e = new ClassFileEntity(className, cf, jarId);
             e.setJarName(jarName);
+            e.setContentHash(AddCli.hashFile(cf));
             result.add(e);
         }
         return result;
+    }
+
+    private static void deleteDir(java.io.File f) {
+        if (f == null || !f.exists()) return;
+        java.io.File[] children = f.listFiles();
+        if (children != null) {
+            for (java.io.File c : children) deleteDir(c);
+        }
+        f.delete();
     }
 }

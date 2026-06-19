@@ -30,13 +30,13 @@ import java.util.List;
  * 设计：build 不再 eager 反编译，只产事实库 + 持久 classes 字节镜像（{@link EngineConst#classesDir}）。
  * AI 审计时钻到某个类要读源码，调用本命令：定位该类所属单元（整个 jar，或全部散装类组成的
  * loose 组），把该单元全部 .class 一次性喂 CFR 批量反编译（拿到兄弟类/内部类上下文 → 质量最优），
- * 落地到 {@link EngineConst#sourcesDir}。**缓存靠落地 .java 文件存在性判定**——已落地则直接返回，
+ * 落地到 .class 同级目录（紧贴模式）。**缓存靠落地 .java 文件存在性判定**——已落地则直接返回，
  * 不重复反编译。全程不写 DB（DB 保持只读）。
  * <p>
  * 用法：source &lt;class-fqn&gt; [--db &lt;path&gt;]
  * 类名用 JVM 内部格式（斜杠分隔、无 .class），如 com/example/Foo。输出 JSON 到 stdout：
  * {@code {"class_name", "java_path", "cache_hit", "decompiled"}}。
- * java_path 指向 sourcesDir 下的 .java（AI 随后可直接读取该文件）。
+ * java_path 指向 classesDir 下与 .class 同级的 .java（AI 随后可直接读取该文件）。
  * <p>
  * 注意：classes 字节镜像是反编译的字节来源；若被删除（rm -rf jar-analyzer-classes）则本命令失效，
  * 需重新 build。
@@ -76,7 +76,6 @@ public class SourceCli {
 
     private static void run(String fqn) throws Exception {
         Path classesRoot = Paths.get(EngineConst.classesDir).toAbsolutePath().normalize();
-        Path sourcesRoot = Paths.get(EngineConst.sourcesDir).toAbsolutePath().normalize();
 
         // 1. 定位请求类：拿 path_str + jar_id（跨 jar 同 FQN 取首条，属已知局限）
         String classNameKey = fqn + ".class";
@@ -98,8 +97,8 @@ public class SourceCli {
                     + " (use JVM internal form, slash-separated, no .class)");
         }
 
-        // 2. 推导目标 .java 路径（与 StructuredDecompiler 的 relativize 输出一致；内部类映射到外类 .java）
-        Path targetJava = deriveJavaPath(classesRoot, sourcesRoot, selfPath);
+        // 2. 推导目标 .java 路径（紧贴模式：.class 同级 .java）
+        Path targetJava = deriveJavaPath(classesRoot, selfPath);
 
         // 3. 缓存命中：.java 已落地则直接返回，不反编译
         if (Files.exists(targetJava)) {
@@ -107,7 +106,7 @@ public class SourceCli {
             return;
         }
 
-        // 4. 缺失：需反编译——此时才要求 classes 字节镜像在位（缓存命中只读 .java，不依赖镜像）
+        // 4. 缺失：需反编译——此时才要求 classes 字节镜像在位
         if (!Files.isDirectory(classesRoot)) {
             throw new IllegalStateException(
                     "class byte mirror missing: " + classesRoot +
@@ -119,9 +118,8 @@ public class SourceCli {
             throw new IllegalStateException("no class files for unit of " + fqn);
         }
 
-        // 5. 整单元批量反编译落地。
-        //    inputRoot=classesRoot（镜像根），输出镜像相对结构进 sourcesRoot。
-        StructuredDecompiler.decompileTree(classesRoot, sourcesRoot, unit);
+        // 5. 整单元批量反编译落地（紧贴模式：outputDir = classesRoot）
+        StructuredDecompiler.decompileTree(classesRoot, classesRoot, unit);
 
         // 6. 复查：成功则返回；否则该类反编译失败（CFR+FernFlower 双双失败）
         boolean ok = Files.exists(targetJava);
@@ -160,28 +158,27 @@ public class SourceCli {
     }
 
     /**
-     * 推导 .java 路径：sourcesRoot / relativize(classesRoot, classPath)，.class→.java，
-     * 内部类（首个 '$' 之后）剥到外类（内部类与外类共享同一 .java，与 decompileTree 一致）。
+     * 推导 .java 路径（紧贴模式）：.class 路径直接改后缀为 .java，
+     * 内部类（首个 '$' 之后）剥到外类（内部类与外类共享同一 .java）。
+     */
+    static Path deriveJavaPath(Path classesRoot, String classPathStr) {
+        Path cls = Paths.get(classPathStr).toAbsolutePath().normalize();
+        String fileName = cls.getFileName().toString();
+        if (fileName.endsWith(".class")) {
+            fileName = fileName.substring(0, fileName.length() - ".class".length());
+        }
+        int dollar = fileName.indexOf('$');
+        if (dollar >= 0) {
+            fileName = fileName.substring(0, dollar);
+        }
+        return cls.getParent().resolve(fileName + ".java").normalize();
+    }
+
+    /**
+     * 兼容旧签名（供 QueryCli 调用，sourcesRoot 参数忽略，紧贴 classesRoot）。
      */
     static Path deriveJavaPath(Path classesRoot, Path sourcesRoot, String classPathStr) {
-        Path cls = Paths.get(classPathStr).toAbsolutePath().normalize();
-        String relStr;
-        try {
-            relStr = classesRoot.relativize(cls).toString().replace('\\', '/');
-        } catch (Exception e) {
-            relStr = cls.getFileName().toString();
-        }
-        int lastSlash = relStr.lastIndexOf('/');
-        String dir = lastSlash >= 0 ? relStr.substring(0, lastSlash + 1) : "";
-        String file = lastSlash >= 0 ? relStr.substring(lastSlash + 1) : relStr;
-        if (file.endsWith(".class")) {
-            file = file.substring(0, file.length() - ".class".length());
-        }
-        int dollar = file.indexOf('$');
-        if (dollar >= 0) {
-            file = file.substring(0, dollar);
-        }
-        return sourcesRoot.resolve(dir + file + ".java").normalize();
+        return deriveJavaPath(classesRoot, classPathStr);
     }
 
     private static void emit(String fqn, Path javaPath, boolean cacheHit, boolean decompiled) {
@@ -240,7 +237,7 @@ public class SourceCli {
     private static void usage() {
         System.err.println("Usage: source <class-fqn> [--db <path>]");
         System.err.println("  Lazily decompile the unit (jar / loose group) owning <class-fqn>,");
-        System.err.println("  landing .java under " + EngineConst.sourcesDir + "/ and returning its path.");
+        System.err.println("  landing .java alongside .class in " + EngineConst.classesDir + "/ and returning its path.");
         System.err.println("  Class name uses JVM internal form (slash, no .class), e.g. com/example/Foo");
         System.err.println("  Cache: an already-landed .java is returned as-is (no re-decompile).");
     }

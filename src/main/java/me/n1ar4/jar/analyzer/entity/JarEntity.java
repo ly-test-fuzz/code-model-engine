@@ -14,6 +14,7 @@ public class JarEntity {
     private int jid;
     private String jarName;
     private String jarAbsPath;
+    private String contentHash;
 
     public int getJid() {
         return jid;
@@ -37,6 +38,14 @@ public class JarEntity {
 
     public void setJarAbsPath(String jarAbsPath) {
         this.jarAbsPath = jarAbsPath;
+    }
+
+    public String getContentHash() {
+        return contentHash;
+    }
+
+    public void setContentHash(String contentHash) {
+        this.contentHash = contentHash;
     }
 
     @Override

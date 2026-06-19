@@ -59,6 +59,8 @@ public class NormalizeRunner {
         public final String prefix;
         /** 原归档文件名（如 "audit-commons-1.0.0.jar"），用于 saveJar 命名。 */
         public final String archiveName;
+        /** 内容 hash（增量入库判重用，全量 build 时为 null）。 */
+        public String contentHash;
 
         public ArchiveRegion(String prefix, String archiveName) {
             this.prefix = prefix;
@@ -74,6 +76,122 @@ public class NormalizeRunner {
      * @param maxRounds 最大递归轮数（防御深嵌套不收敛）
      * @return 归档区域列表（按 prefix 长度降序，便于最长前缀匹配）
      */
+    /**
+     * 增量归一化（不删已有镜像，追加到指定 batchDir 子目录）。
+     * 与全量 normalize 逻辑相同（播种+递归解压），但镜像根为 mirrorRoot/batchDir/，
+     * 已有批次不受影响。返回的 ArchiveRegion.prefix 相对 mirrorRoot（含 batchDir 前缀）。
+     *
+     * @param input     新增输入（目录或 jar/war/class 文件）
+     * @param mirrorRoot 总镜像根（EngineConst.classesDir）
+     * @param batchDir  本批次子目录名（如 "path_2"）
+     * @param maxRounds 最大递归轮数
+     * @return 新增的归档区域列表（按 prefix 长度降序）
+     */
+    public static List<ArchiveRegion> normalizeAppend(Path input, Path mirrorRoot,
+                                                       String batchDir, int maxRounds) {
+        List<ArchiveRegion> regions = new ArrayList<>();
+        try {
+            Path batchRoot = mirrorRoot.resolve(batchDir);
+            Files.createDirectories(batchRoot);
+
+            // 1. 播种到 batch 子目录
+            Path inAbs = input.toAbsolutePath().normalize();
+            if (Files.isDirectory(inAbs)) {
+                copyTree(inAbs, batchRoot);
+            } else {
+                Path dest = batchRoot.resolve(inAbs.getFileName().toString());
+                Files.copy(inAbs, dest, StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            // 2. 多轮递归解压（只在 batchRoot 内）
+            int rounds = maxRounds <= 0 ? DEFAULT_MAX_ROUNDS : maxRounds;
+            for (int round = 1; round <= rounds; round++) {
+                List<Path> archives = findArchives(batchRoot);
+                if (archives.isEmpty()) {
+                    logger.info("normalizeAppend converged after {} round(s)", round - 1);
+                    break;
+                }
+                logger.info("normalizeAppend round {}: {} archive(s) to explode", round, archives.size());
+                for (Path archive : archives) {
+                    explodeOneRelative(archive, mirrorRoot, regions);
+                }
+            }
+
+            // prefix 长度降序
+            regions.sort((a, b) -> Integer.compare(b.prefix.length(), a.prefix.length()));
+        } catch (Exception e) {
+            logger.error("normalizeAppend failed: {}", e.toString());
+        }
+        return regions;
+    }
+
+    /**
+     * explodeOne 变体：region prefix 相对 mirrorRoot（而非 batchRoot），
+     * 确保与全量 build 的 buildCfsFromMirror 最长前缀匹配兼容。
+     */
+    private static void explodeOneRelative(Path archive, Path mirrorRoot, List<ArchiveRegion> regions) {
+        try {
+            String fileName = archive.getFileName().toString();
+            String baseName = stripArchiveSuffix(fileName);
+            Path parent = archive.getParent();
+            Path destDir = parent.resolve(baseName);
+
+            if (Files.exists(destDir)) {
+                String tag = Integer.toHexString(archive.toAbsolutePath().toString().hashCode());
+                destDir = parent.resolve(baseName + "__" + tag);
+            }
+            Files.createDirectories(destDir);
+
+            Path destAbs = destDir.toAbsolutePath().normalize();
+            ZipFile zf = null;
+            try {
+                zf = new ZipFile(archive.toFile());
+                Enumeration<? extends ZipArchiveEntry> entries = zf.getEntries();
+                while (entries.hasMoreElements()) {
+                    ZipArchiveEntry entry = entries.nextElement();
+                    String en = entry.getName();
+                    if (en.contains("../") || en.contains("..\\")) {
+                        continue;
+                    }
+                    Path out = destDir.resolve(en).toAbsolutePath().normalize();
+                    if (!out.startsWith(destAbs)) {
+                        continue;
+                    }
+                    if (entry.isDirectory()) {
+                        Files.createDirectories(out);
+                        continue;
+                    }
+                    if (out.getParent() != null && !Files.exists(out.getParent())) {
+                        Files.createDirectories(out.getParent());
+                    }
+                    InputStream in = null;
+                    OutputStream os = null;
+                    try {
+                        in = zf.getInputStream(entry);
+                        os = Files.newOutputStream(out);
+                        IOUtil.copy(in, os);
+                    } finally {
+                        closeQuiet(in);
+                        closeQuiet(os);
+                    }
+                }
+            } finally {
+                if (zf != null) {
+                    try { zf.close(); } catch (Exception ignored) { }
+                }
+            }
+
+            // region prefix 相对 mirrorRoot（含 batch 前缀段）
+            String prefix = mirrorRoot.toAbsolutePath().normalize()
+                    .relativize(destAbs).toString().replace('\\', '/');
+            regions.add(new ArchiveRegion(prefix, fileName));
+
+            Files.deleteIfExists(archive);
+        } catch (Exception e) {
+            logger.warn("explodeOneRelative {} failed: {}", archive, e.toString());
+        }
+    }
+
     public static List<ArchiveRegion> normalize(Path input, Path mirrorRoot, int maxRounds) {
         List<ArchiveRegion> regions = new ArrayList<>();
         try {
