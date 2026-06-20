@@ -1,6 +1,6 @@
 # source — 按需懒反编译
 
-把指定类所属的整个单元（jar 或全部散装类的 loose 组）一次性反编译，落地 `.java` 到 `jar-analyzer-sources/`。
+把指定类所属的整个单元（jar 或全部散装类的 loose 组）一次性反编译，`.java` **紧贴**落地在 `jar-analyzer-classes/` 内对应 `.class` 的同级位置（无独立 sources 目录）。
 
 ## 用法
 
@@ -20,7 +20,7 @@ cme.sh source <class-fqn> [--db <path>]
 1. 根据类名查找其所属的**归档单元**（某个 jar 或所有散装类组成的 loose 组）
 2. 把整个单元一次性反编译——CFR 拿到兄弟类/内部类上下文，质量最优
 3. CFR 失败的类自动 FernFlower 回退（方法级粒度）
-4. 反编译结果落地到 `jar-analyzer-sources/` 目录下，保留部署结构
+4. 反编译结果紧贴落地在 `jar-analyzer-classes/` 内对应 `.class` 的同级目录（.java 与 .class 并存，无独立 sources 目录）
 5. 已落地的类直接返回（按文件存在缓存，不重复反编译）
 
 ## 输出
@@ -29,7 +29,7 @@ JSON 到 stdout：
 ```json
 {
   "class_name": "com/example/controller/UserController",
-  "java_path": "jar-analyzer-sources/webapp.war/WEB-INF/classes/com/example/controller/UserController.java",
+  "java_path": "jar-analyzer-classes/webapp.war/WEB-INF/classes/com/example/controller/UserController.java",
   "cache_hit": false,
   "decompiled": true
 }

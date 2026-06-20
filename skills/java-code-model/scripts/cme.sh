@@ -135,7 +135,7 @@ case "$sub" in
             esac
         done
         args=(--path "$target")
-        [ "$prewarm" -eq 1 ] && args+=(--decompile-out)
+        [ "$prewarm" -eq 1 ] && args+=(--decompile-all)
         [ ${#passthru[@]} -gt 0 ] && args+=("${passthru[@]}")
         exec "$JAVA_BIN" $JAVA_OPTS -jar "$JAR" "${args[@]}"
         ;;

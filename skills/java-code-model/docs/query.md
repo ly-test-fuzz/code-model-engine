@@ -31,7 +31,7 @@ cme.sh query <verb> [args...] [--db <path>]
 ## 结果字段说明
 
 涉及类的查询结果带以下标记字段：
-- `java_path`：推导的 `.java` 路径（在 `jar-analyzer-sources/` 下）
+- `java_path`：推导的 `.java` 路径（在 `jar-analyzer-classes/` 内对应 `.class` 同级）
 - `java_decompiled`：是否已落地（`true` 可直接 Read；`false` 需先 `source` 落地再读）
 
 ## 使用示例

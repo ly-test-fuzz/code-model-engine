@@ -26,7 +26,7 @@ public class EngineConfig {
 
     /**
      * 是否全量反编译（--decompile-all）。
-     * true 时 build 末尾遍历全部 jar/loose 单元，全量反编译进 EngineConst.sourcesDir。
+     * true 时 build 末尾遍历全部 jar/loose 单元，全量反编译，.java 紧贴 .class 同级落地于 EngineConst.classesDir。
      * 默认 false——build 只产事实库 + 持久 classes 镜像，源码由 SourceCli 按需懒反编译落地。
      */
     private boolean decompileAll = false;

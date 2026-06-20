@@ -55,14 +55,14 @@ Stores information about each discovered class.
 
 ### 3. `class_file_table` — Class File Paths / 类文件路径
 
-Maps class names to their physical file paths. `path_str` points into the persistent byte mirror (`jar-analyzer-classes/`). `java_path` is **not** populated by a normal build — source `.java` is produced on demand by the `source` command (or eagerly by `--decompile-out` prewarm); `QueryCli` derives the `.java` path from `path_str` + reports `java_decompiled` (whether it has landed).
+Maps class names to their physical file paths. `path_str` points into the persistent byte mirror (`jar-analyzer-classes/`). `java_path` is **not** populated by a normal build — source `.java` is produced on demand by the `source` command (or eagerly by `--decompile-all` prewarm); `QueryCli` derives the `.java` path from `path_str` + reports `java_decompiled` (whether it has landed).
 
 | Column | Type | Nullable | Description (EN) | 说明 (CN) |
 |--------|------|----------|-----------------|-----------|
 | `cf_id` | INTEGER | NOT NULL | Primary key (auto-increment) | 主键（自增） |
 | `class_name` | TEXT | NOT NULL | Class name **with `.class` suffix** (e.g., `com/x/Foo.class`) — **differs from `class_table.class_name`** | 类名（**带 `.class` 后缀**，如 `com/x/Foo.class`）— **与 `class_table.class_name` 不同** |
 | `path_str` | TEXT | NOT NULL | `.class` path in the persistent byte mirror (`jar-analyzer-classes/`) | 持久字节镜像（`jar-analyzer-classes/`）内的 `.class` 路径 |
-| `java_path` | TEXT | NULL | Decompiled `.java` path; left NULL by build (source produced on demand by `source` cmd / `--decompile-out` prewarm) | 反编译 `.java` 路径；build 留空（源码由 `source` 命令按需 / `--decompile-out` 预热产出） |
+| `java_path` | TEXT | NULL | Decompiled `.java` path; left NULL by build (source produced on demand by `source` cmd / `--decompile-all` prewarm) | 反编译 `.java` 路径；build 留空（源码由 `source` 命令按需 / `--decompile-all` 预热产出） |
 | `jar_name` | TEXT | NOT NULL | JAR file name | JAR 文件名 |
 | `jar_id` | INTEGER | NOT NULL | FK → `jar_table.jid` | 外键 → `jar_table.jid` |
 
@@ -218,7 +218,7 @@ jar_table (jid)
 - **Method → Callees**: `method_call_table.caller_class_name + caller_method_name + caller_method_desc`
 - **Method → Strings**: `string_table.class_name + method_name + method_desc`
 - **Method → Override Impls**: `method_impl_table.class_name + method_name + method_desc`
-- **Class → Decompiled source**: run `source <class-fqn>` to land `.java` under `jar-analyzer-sources/` (or `--decompile-out` to prewarm all); `QueryCli` reports the derived path + `java_decompiled` flag
+- **Class → Decompiled source**: run `source <class-fqn>` to land `.java` alongside its `.class` inside `jar-analyzer-classes/` (or `--decompile-all` to prewarm all); `QueryCli` reports the derived path + `java_decompiled` flag
 
 ---
 

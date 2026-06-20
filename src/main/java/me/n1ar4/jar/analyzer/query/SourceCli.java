@@ -174,13 +174,6 @@ public class SourceCli {
         return cls.getParent().resolve(fileName + ".java").normalize();
     }
 
-    /**
-     * 兼容旧签名（供 QueryCli 调用，sourcesRoot 参数忽略，紧贴 classesRoot）。
-     */
-    static Path deriveJavaPath(Path classesRoot, Path sourcesRoot, String classPathStr) {
-        return deriveJavaPath(classesRoot, classPathStr);
-    }
-
     private static void emit(String fqn, Path javaPath, boolean cacheHit, boolean decompiled) {
         System.out.println("{"
                 + jkv("class_name", fqn) + ", "

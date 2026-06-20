@@ -29,7 +29,7 @@ public interface EngineConst {
      * 归一化字节码镜像根（持久产物，与 DB 同级、cwd 相对）。
      * 输入整树镜像 + 多轮递归解压所有 jar/war 后的 .class 与资源落于此；
      * build 后永不删——它是 class_file_table.path_str 的实体，也是懒反编译的字节来源。
-     * 反编译的 .java 紧贴同级 .class 落地（同目录，后缀不同），不再另设 sourcesDir。
+     * 反编译的 .java 紧贴同级 .class 落地（同目录，后缀不同），无独立 sources 目录。
      */
     String classesDir = "jar-analyzer-classes";
     /**

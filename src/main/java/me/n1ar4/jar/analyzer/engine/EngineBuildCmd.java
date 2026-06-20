@@ -24,7 +24,7 @@ public class EngineBuildCmd {
     @Parameter(names = {"--rt"}, description = "rt.jar path (optional, for JDK class analysis)")
     public String rtJarPath;
 
-    @Parameter(names = {"--decompile-all"}, description = "Eagerly decompile ALL jar/loose units into jar-analyzer-sources/ during build. Default off (sources produced on demand by 'source' command).")
+    @Parameter(names = {"--decompile-all"}, description = "Eagerly decompile ALL jar/loose units during build, landing .java alongside each .class in jar-analyzer-classes/. Default off (sources produced on demand by 'source' command).")
     public boolean decompileAll = false;
 
     @Parameter(names = {"--force-rebuild"}, description = "Force full rebuild even if database already exists (discards existing data).")

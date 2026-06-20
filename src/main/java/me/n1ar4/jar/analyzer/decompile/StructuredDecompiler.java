@@ -78,7 +78,7 @@ public class StructuredDecompiler {
      * classFiles 各元素的 jarId/path 决定，与传入的是全量还是子集无关。
      *
      * @param inputRoot          归一化镜像根（EngineConst.classesDir）；输出按相对此根的路径镜像
-     * @param outputDir          反编译 .java 输出根目录（EngineConst.sourcesDir）
+     * @param outputDir          反编译 .java 输出根目录（紧贴模式即 EngineConst.classesDir，.java 与 .class 同级）
      * @param classFiles         待反编译的类（含 origin 线索：className/jarName/jarId/path）
      * @return 成功写出的 .java 文件数
      */
