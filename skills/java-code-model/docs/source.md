@@ -45,16 +45,14 @@ JSON 到 stdout：
 ## 典型工作流
 
 ```bash
-# 1. query 发现目标类
+# 1. query 搜索目标类
 cme.sh query anno RequestMapping
-# 结果中 java_decompiled=false 的类需要先 source
 
-# 2. source 落地
+# 2. 对感兴趣的类调 source 落地
 cme.sh source com/example/controller/VulnController
-# 返回 java_path
+# 返回 JSON 含 java_path
 
-# 3. Read 源码分析逻辑
-# Read 返回的 java_path 即可
+# 3. Read java_path 指向的文件即可
 ```
 
 ## 前置条件

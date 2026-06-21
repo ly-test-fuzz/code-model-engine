@@ -22,21 +22,19 @@ import java.util.List;
 /**
  * 面向 AI 的代码事实查询 CLI（只读，原生 JDBC）。
  * <p>
- * 不依赖 MyBatis/DatabaseManager（后者静态块会建表 + 开写 session）。只读查询事实库。
- * 每个涉及类的结果都带 java_path（推导的 .java 路径）+ java_decompiled（是否已落地）：
- * 源码由 SourceCli 按需懒反编译，java_decompiled=false 表示尚未反编译，需先跑
- * `source <class>` 才能读到该 .java。
+ * 纯搜索器：针对字节码事实库做只读查询，返回客观事实（类/方法/注解/调用关系/字符串）。
+ * 不涉及反编译状态——需要读源码时，消费方自行调 SourceCli。
  * <p>
- * 用法：query <verb> [args]  --db <path>（默认 jar-analyzer.db）
- *   class   <name-like>                 按类名模糊查 → class_name, jar, java_path, java_decompiled
- *   anno    <anno-like>                 按注解模糊查（注解存储为 Lx/y/Z;）→ anno, class, method, java_path
- *   methods <class-fqn>                 类的所有方法 → method, desc, static, line, java_path
- *   callers <class> <method> [desc]     谁调用了它（反向）
- *   callees <class> <method> [desc]     它调用了谁（正向）
- *   impls   <class> <method> [desc]     方法的 Override/实现（CHA 向下）
- *   subtypes <type-fqn>                 实现该接口 / 继承该类的所有类
- *   string  <value-like>                字符串常量模糊查 → value, class, method, java_path
- *   sql     <SELECT...>                 只读裸 SQL 逃生口
+ * 用法：query &lt;verb&gt; [args]  --db &lt;path&gt;（默认 jar-analyzer.db）
+ *   class   &lt;name-like&gt;              按类名模糊查
+ *   anno    &lt;anno-like&gt;              按注解模糊查（注解存储为 Lx/y/Z;）
+ *   methods &lt;class-fqn&gt;              类的所有方法
+ *   callers &lt;class&gt; &lt;method&gt; [desc]  谁调用了它（反向）
+ *   callees &lt;class&gt; &lt;method&gt; [desc]  它调用了谁（正向）
+ *   impls   &lt;class&gt; &lt;method&gt; [desc]  方法的 Override/实现（CHA 向下）
+ *   subtypes &lt;type-fqn&gt;              实现该接口 / 继承该类的所有类
+ *   string  &lt;value-like&gt;             字符串常量模糊查
+ *   sql     &lt;SELECT...&gt;              只读裸 SQL 逃生口
  * 类名一律用 JVM 内部格式（斜杠分隔，无 .class），如 com/example/Foo。
  */
 public class QueryCli {
@@ -104,32 +102,20 @@ public class QueryCli {
         }
     }
 
-    // 源码定位子查询：取 class_file_table.path_str（持久 classes 镜像里的 .class 绝对路径），
-    // 输出层据此推导 sources 根下的 .java 路径 + 是否已落地（与 SourceCli 懒反编译缓存判定一致）。
-    // 分析表 class_name 无 .class 后缀，class_file_table 有 → 补后缀匹配。列名用 sentinel，输出层拦截。
-    private static final String JP =
-            "(SELECT cf.path_str FROM class_file_table cf " +
-                    "WHERE cf.class_name = %s || '.class' LIMIT 1) AS __class_path";
-
     private static void runClass(String like) throws Exception {
-        // class_table.class_name 无 .class 后缀
-        String sql = "SELECT c.class_name, c.super_class_name, c.is_interface, c.jar_name, " +
-                String.format(JP, "c.class_name") +
+        String sql = "SELECT c.class_name, c.super_class_name, c.is_interface, c.jar_name" +
                 " FROM class_table c WHERE c.class_name LIKE ?";
         query(sql, like(like));
     }
 
     private static void runAnno(String like) throws Exception {
-        // anno_name 存储为 Lx/y/Z; → 模糊匹配
-        String sql = "SELECT a.anno_name, a.class_name, a.method_name, a.visible, " +
-                String.format(JP, "a.class_name") +
+        String sql = "SELECT a.anno_name, a.class_name, a.method_name, a.visible" +
                 " FROM anno_table a WHERE a.anno_name LIKE ?";
         query(sql, like(like));
     }
 
     private static void runMethods(String cls) throws Exception {
-        String sql = "SELECT m.method_name, m.method_desc, m.is_static, m.access, m.line_number, " +
-                String.format(JP, "m.class_name") +
+        String sql = "SELECT m.method_name, m.method_desc, m.is_static, m.access, m.line_number" +
                 " FROM method_table m WHERE m.class_name = ?";
         query(sql, cls);
     }
@@ -141,8 +127,7 @@ public class QueryCli {
         StringBuilder sb = new StringBuilder("SELECT ")
                 .append(other).append("_class_name AS class_name, ")
                 .append(other).append("_method_name AS method_name, ")
-                .append(other).append("_method_desc AS method_desc, op_code, ")
-                .append(String.format(JP, other + "_class_name"))
+                .append(other).append("_method_desc AS method_desc, op_code")
                 .append(" FROM method_call_table WHERE ")
                 .append(self).append("_class_name = ? AND ")
                 .append(self).append("_method_name = ?");
@@ -156,8 +141,7 @@ public class QueryCli {
 
     private static void runImpls(String cls, String method, String desc) throws Exception {
         StringBuilder sb = new StringBuilder(
-                "SELECT impl_class_name AS class_name, method_name, method_desc, " +
-                        String.format(JP, "impl_class_name") +
+                "SELECT impl_class_name AS class_name, method_name, method_desc" +
                         " FROM method_impl_table WHERE class_name = ? AND method_name = ?");
         List<String> p = new ArrayList<>(Arrays.asList(cls, method));
         if (desc != null) {
@@ -168,21 +152,16 @@ public class QueryCli {
     }
 
     private static void runSubtypes(String type) throws Exception {
-        // 接口实现 + 直接子类（super_class_name）。外层表必须加别名，否则 JP 子查询里
-        // 裸 class_name 会被 SQLite 绑到内层 cf 自己的列（自己永不等于自己+'.class'）。
-        String sql = "SELECT it.class_name, 'implements' AS relation, " +
-                String.format(JP, "it.class_name") +
+        String sql = "SELECT it.class_name, 'implements' AS relation" +
                 " FROM interface_table it WHERE it.interface_name = ? " +
                 "UNION ALL " +
-                "SELECT ct.class_name, 'extends' AS relation, " +
-                String.format(JP, "ct.class_name") +
+                "SELECT ct.class_name, 'extends' AS relation" +
                 " FROM class_table ct WHERE ct.super_class_name = ?";
         query(sql, type, type);
     }
 
     private static void runString(String like) throws Exception {
-        String sql = "SELECT s.value, s.class_name, s.method_name, s.method_desc, " +
-                String.format(JP, "s.class_name") +
+        String sql = "SELECT s.value, s.class_name, s.method_name, s.method_desc" +
                 " FROM string_table s WHERE s.value LIKE ?";
         query(sql, like(like));
     }
@@ -198,9 +177,6 @@ public class QueryCli {
     // ---- JDBC + JSON 输出 ----
 
     private static void query(String sql, String... params) throws Exception {
-        // 源码路径推导基准（cwd 相对，与全工具约定一致；紧贴模式：.java 在 .class 同级）
-        java.nio.file.Path classesRoot = java.nio.file.Paths.get(
-                me.n1ar4.jar.analyzer.engine.EngineConst.classesDir).toAbsolutePath().normalize();
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + dbFile);
              PreparedStatement ps = conn.prepareStatement(sql)) {
             for (int i = 0; i < params.length; i++) {
@@ -222,23 +198,6 @@ public class QueryCli {
                     for (int i = 1; i <= cols; i++) {
                         String label = md.getColumnLabel(i);
                         String value = rs.getString(i);
-                        // sentinel：把 .class 路径(path_str)转成推导的 .java 路径 + 是否已落地（SourceCli 懒反编译缓存判定）
-                        if ("__class_path".equals(label)) {
-                            String javaPath = null;
-                            boolean landed = false;
-                            if (value != null) {
-                                java.nio.file.Path jp = SourceCli.deriveJavaPath(classesRoot, value);
-                                javaPath = jp.toString();
-                                landed = java.nio.file.Files.exists(jp);
-                            }
-                            if (!firstCol) {
-                                out.append(", ");
-                            }
-                            firstCol = false;
-                            out.append(jstr("java_path")).append(": ").append(jstr(javaPath))
-                                    .append(", ").append(jstr("java_decompiled")).append(": ").append(landed);
-                            continue;
-                        }
                         if (!firstCol) {
                             out.append(", ");
                         }

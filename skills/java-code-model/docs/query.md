@@ -14,7 +14,7 @@ cme.sh query <verb> [args...] [--db <path>]
 
 | verb | 用法 | 说明 |
 |------|------|------|
-| `class <name-like>` | 类名模糊查 | → class_name, super_class, jar, java_path, java_decompiled |
+| `class <name-like>` | 类名模糊查 | → class_name, super_class, is_interface, jar |
 | `anno <anno-like>` | 注解模糊查 | 注解存为 `Lx/y/Z;`，查子串即可（如 `RequestMapping`） |
 | `methods <class-fqn>` | 列类所有方法 | → method_name, desc, is_static, line_number |
 | `callers <class> <method> [desc]` | 谁调用了它 | 反向调用图 |
@@ -27,12 +27,6 @@ cme.sh query <verb> [args...] [--db <path>]
 ## 类名格式
 
 一律 **JVM 内部格式**（`/` 分隔，无 `.class`），如 `com/example/Foo`。
-
-## 结果字段说明
-
-涉及类的查询结果带以下标记字段：
-- `java_path`：推导的 `.java` 路径（在 `jar-analyzer-classes/` 内对应 `.class` 同级）
-- `java_decompiled`：是否已落地（`true` 可直接 Read；`false` 需先 `source` 落地再读）
 
 ## 使用示例
 
